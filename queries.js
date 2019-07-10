@@ -44,6 +44,7 @@ const createTicket = (request, response) => {
     phone,
     extension,
     summary,
+    status,
     type,
     priority,
     category,
@@ -52,13 +53,14 @@ const createTicket = (request, response) => {
   } = request.body;
 
   pool.query(
-    "INSERT INTO tickets (name, email, phone, extension, summary, type, priority, category, subcategory, details) VALUES ($1, $2, NULLIF($3,''), NULLIF($4,'')::smallint, $5, $6, $7, $8, $9, $10)",
+    "INSERT INTO tickets (name, email, phone, extension, summary, status, type, priority, category, subcategory, details) VALUES ($1, $2, NULLIF($3,''), NULLIF($4,'')::smallint, $5, $6, $7, $8, $9, $10, $11)",
     [
       name,
       email,
       phone,
       extension,
       summary,
+      status,
       type,
       priority,
       category,
@@ -85,6 +87,7 @@ const updateTicket = (request, response) => {
     phone,
     extension,
     summary,
+    status,
     type,
     priority,
     category,
@@ -93,7 +96,7 @@ const updateTicket = (request, response) => {
   } = request.body;
 
   pool.query(
-    "UPDATE tickets SET name = $2, email = $3, phone = $4, extension = $5, summary = $6, type = $7,  priority = $8, category = $9, subcategory = $10, details = $11 WHERE id = $1",
+    "UPDATE tickets SET name = $2, email = $3, phone = NULLIF($4, ''), extension = NULLIF($5, '')::smallint, summary = $6, status = $7,  type = $8, priority = $9, category = $10, subcategory = $11, details = $12 WHERE id = $1",
     [
       id,
       name,
@@ -101,6 +104,7 @@ const updateTicket = (request, response) => {
       phone,
       extension,
       summary,
+      status,
       type,
       priority,
       category,
