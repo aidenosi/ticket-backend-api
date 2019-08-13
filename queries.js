@@ -1,8 +1,11 @@
 const { Pool } = require("pg");
 // Database settings
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: true
+  user: "aiden",
+  host: "localhost",
+  database: "api",
+  password: "102938",
+  port: 5432
 });
 
 /**
