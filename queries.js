@@ -32,41 +32,6 @@ const getTicketById = (request, response) => {
 };
 
 /**
- * Query for a search of tickets by a value.
- */
-const searchTicketsAllColumns = (request, response) => {};
-
-/**
- * Query for a search of tickets by column and value.
- */
-const searchTickets = (request, response) => {
-  const column = request.params.column;
-  const term = request.params.term;
-  if (column === "contact") {
-    query =
-      "SELECT * FROM tickets WHERE (name||email) ILIKE '%" +
-      term +
-      "%' OR (phone||extension) ILIKE '%" +
-      term +
-      "%'";
-    pool.query(query, [], (error, results) => {
-      if (error) {
-        throw error;
-      }
-      response.status(200).json(results.rows);
-    });
-  } else {
-    query = "SELECT * FROM tickets WHERE " + column + " ILIKE '%" + term + "%'";
-    pool.query(query, [], (error, results) => {
-      if (error) {
-        throw error;
-      }
-      response.status(200).json(results.rows);
-    });
-  }
-};
-
-/**
  * Query for new ticket.
  */
 const createTicket = (request, response) => {
@@ -173,8 +138,7 @@ const deleteUser = (request, response) => {
 module.exports = {
   getTickets,
   getTicketById,
-  searchTickets,
   createTicket,
   updateTicket
-  //deleteTicket
+  //deleteUser
 };
