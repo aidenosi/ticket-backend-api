@@ -34,7 +34,30 @@ const getTicketById = (request, response) => {
 /**
  * Query for a search of tickets by a value.
  */
-const searchTicketsAllColumns = (request, response) => {};
+const searchTicketsAllColumns = (request, response) => {
+  const term = request.params.term;
+  var query;
+  query =
+    "SELECT * FROM tickets WHERE name ILIKE '%" +
+    term +
+    "%' OR email ILIKE '%" +
+    term +
+    "%' OR phone LIKE '%" +
+    term +
+    "%' OR CAST(extension AS TEXT) LIKE '%" +
+    term +
+    "%' OR summary ILIKE '%" +
+    term +
+    "%' OR details ILIKE '%" +
+    term +
+    "%'";
+  pool.query(query, [], (error, results) => {
+    if (error) {
+      throw error;
+    }
+    response.status(200).json(results.rows);
+  });
+};
 
 /**
  * Query for a search of tickets by column and value.
@@ -44,9 +67,13 @@ const searchTickets = (request, response) => {
   const term = request.params.term;
   if (column === "contact") {
     query =
-      "SELECT * FROM tickets WHERE (name||email) ILIKE '%" +
+      "SELECT * FROM tickets WHERE name ILIKE '%" +
       term +
-      "%' OR (phone||extension) ILIKE '%" +
+      "%' OR email ILIKE '%" +
+      term +
+      "%' OR phone LIKE '%" +
+      term +
+      "%' OR CAST(extension AS TEXT) LIKE '%" +
       term +
       "%'";
     pool.query(query, [], (error, results) => {
@@ -156,25 +183,11 @@ const updateTicket = (request, response) => {
   );
 };
 
-/**
- * Query to delete user by ID.
- */
-const deleteUser = (request, response) => {
-  const id = parseInt(request.params.id);
-
-  pool.query("DELETE FROM users WHERE id = $1", [id], (error, results) => {
-    if (error) {
-      throw error;
-    }
-    response.status(200).send(`Ticket deleted with ID: ${id}`);
-  });
-};
-
 module.exports = {
   getTickets,
   getTicketById,
+  searchTicketsAllColumns,
   searchTickets,
   createTicket,
   updateTicket
-  //deleteTicket
 };

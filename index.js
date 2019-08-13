@@ -14,7 +14,7 @@ app.get("/", (request, response) => {
 
 app.get("/tickets", db.getTickets);
 app.get("/tickets/:id", db.getTicketById);
-//app.get("/search/:term", db.searchTicketsAllColumns);
+app.get("/search/:term", db.searchTicketsAllColumns);
 app.get("/search/:column/:term", db.searchTickets);
 app.post("/tickets", db.createTicket);
 app.put("/tickets/:id", db.updateTicket);
