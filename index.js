@@ -8,6 +8,8 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cors());
 
+app.options("*", cors());
+
 app.get("/", (request, response) => {
   response.json({ info: "RESTful API for backend of ticketing system." });
 });
