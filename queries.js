@@ -11,7 +11,8 @@ const pool = new Pool({
 const getTickets = (request, response) => {
   pool.query("SELECT * FROM tickets ORDER BY id ASC", (error, results) => {
     if (error) {
-      throw error;
+      console.log("******** Error caught ******** \n" + err.stack);
+      response.status(500).json();
     }
     response.status(200).json(results.rows);
   });
@@ -21,9 +22,8 @@ const getTickets = (request, response) => {
  * Query for a specific ticket by ID.
  */
 const getTicketById = async (request, response) => {
-  const id = parseInt(request.params.id);
-
   try {
+    const id = parseInt(request.params.id);
     // Get individual results from each query
     var ticketResults = await pool.query(
       "SELECT * FROM tickets WHERE id = $1",
@@ -46,10 +46,10 @@ const getTicketById = async (request, response) => {
       ...ticketResults._parsers,
       ...detailsResults._parsers
     ];
-
     response.status(200).json(ticketResults.rows);
   } catch (err) {
-    console.log(err.stack);
+    console.log("******** Error caught ******** \n" + err.stack);
+    response.status(400).json();
   }
 };
 
@@ -78,7 +78,8 @@ const searchTicketsAllColumns = async (request, response) => {
     const results = await pool.query(query, []);
     response.status(200).json(results.rows);
   } catch (err) {
-    console.log(error.stack);
+    console.log("******** Error caught ******** \n" + err.stack);
+    response.status(400).json();
   }
 };
 
@@ -120,7 +121,8 @@ const searchTickets = async (request, response) => {
     const results = await pool.query(query, []);
     response.status(200).json(results.rows);
   } catch (err) {
-    console.log(err.stack);
+    console.log("******** Error caught ******** \n" + err.stack);
+    response.status(400).json();
   }
 };
 
@@ -173,7 +175,8 @@ const createTicket = async (request, response) => {
     }
     response.status(200).send(`Ticket submitted with ID: ${ticketID}`);
   } catch (err) {
-    console.log(err.stack);
+    console.log("******** Error caught ******** \n" + err.stack);
+    response.status(400).json();
   }
 };
 
@@ -231,10 +234,12 @@ const updateTicket = async (request, response) => {
       );
       response.status(200).send(`Ticket modified with ID: ${id}`);
     } catch (err) {
-      console.log(err.stack);
+      console.log("******** Error caught ******** \n" + err.stack);
+      response.status(400).json();
     }
   } catch (err) {
-    console.log(err.stack);
+    console.log("******** Error caught ******** \n" + err.stack);
+    response.status(400).json();
   }
 };
 
