@@ -108,7 +108,7 @@ const searchTickets = async (request, response) => {
       break;
     case "details":
       query =
-        "SELECT * FROM tickets, details WHERE details ILIKE '%" +
+        "SELECT DISTINCT id, summary, status, type, priority, category, subcategory FROM tickets, details WHERE details ILIKE '%" +
         term +
         "%' AND id=ticket_id";
       break;
