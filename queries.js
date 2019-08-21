@@ -1,11 +1,8 @@
 const { Pool } = require("pg");
 // Database settings
 const pool = new Pool({
-  user: "aiden",
-  host: "localhost",
-  database: "api",
-  password: "102938",
-  port: 5432
+  connectionString: process.env.DATABASE_URL,
+  ssl: true
 });
 
 /**
@@ -23,25 +20,47 @@ const getTickets = (request, response) => {
 /**
  * Query for a specific ticket by ID.
  */
-const getTicketById = (request, response) => {
+const getTicketById = async (request, response) => {
   const id = parseInt(request.params.id);
 
-  pool.query("SELECT * FROM tickets WHERE id = $1", [id], (error, results) => {
-    if (error) {
-      throw error;
+  try {
+    // Get individual results from each query
+    var ticketResults = await pool.query(
+      "SELECT * FROM tickets WHERE id = $1",
+      [id]
+    );
+    var detailsResults = await pool.query(
+      "SELECT timestamp AS timestamp, details AS details FROM details WHERE ticket_id = $1",
+      [id]
+    );
+    let details = "";
+    // Append all timestamps and details together
+    for (i = detailsResults.rows.length - 1; i >= 0; i--) {
+      details +=
+        detailsResults.rows[i].timestamp + detailsResults.rows[i].details;
     }
-    response.status(200).json(results.rows);
-  });
+    // Join results from each query
+    ticketResults.rows[0].details = details;
+    ticketResults.fields = [...ticketResults.fields, ...detailsResults.fields];
+    ticketResults._parsers = [
+      ...ticketResults._parsers,
+      ...detailsResults._parsers
+    ];
+
+    response.status(200).json(ticketResults.rows);
+  } catch (err) {
+    console.log(err.stack);
+  }
 };
 
 /**
  * Query for a search of tickets by a value.
  */
-const searchTicketsAllColumns = (request, response) => {
+const searchTicketsAllColumns = async (request, response) => {
   const term = request.params.term;
   var query;
   query =
-    "SELECT * FROM tickets WHERE name ILIKE '%" +
+    "SELECT DISTINCT id, summary, status, type, priority, category, subcategory FROM tickets, details WHERE name ILIKE '%" +
     term +
     "%' OR email ILIKE '%" +
     term +
@@ -53,53 +72,63 @@ const searchTicketsAllColumns = (request, response) => {
     term +
     "%' OR details ILIKE '%" +
     term +
-    "%'";
-  pool.query(query, [], (error, results) => {
-    if (error) {
-      throw error;
-    }
+    "%' AND id=ticket_id";
+
+  try {
+    const results = await pool.query(query, []);
     response.status(200).json(results.rows);
-  });
+  } catch (err) {
+    console.log(error.stack);
+  }
 };
 
 /**
  * Query for a search of tickets by column and value.
  */
-const searchTickets = (request, response) => {
+const searchTickets = async (request, response) => {
   const column = request.params.column;
   const term = request.params.term;
-  if (column === "contact") {
-    query =
-      "SELECT * FROM tickets WHERE name ILIKE '%" +
-      term +
-      "%' OR email ILIKE '%" +
-      term +
-      "%' OR phone LIKE '%" +
-      term +
-      "%' OR CAST(extension AS TEXT) LIKE '%" +
-      term +
-      "%'";
-    pool.query(query, [], (error, results) => {
-      if (error) {
-        throw error;
-      }
-      response.status(200).json(results.rows);
-    });
-  } else {
-    query = "SELECT * FROM tickets WHERE " + column + " ILIKE '%" + term + "%'";
-    pool.query(query, [], (error, results) => {
-      if (error) {
-        throw error;
-      }
-      response.status(200).json(results.rows);
-    });
+  var query;
+  switch (column) {
+    case "contact":
+      query =
+        "SELECT * FROM tickets WHERE name ILIKE '%" +
+        term +
+        "%' OR email ILIKE '%" +
+        term +
+        "%' OR phone LIKE '%" +
+        term +
+        "%' OR CAST(extension AS TEXT) LIKE '%" +
+        term +
+        "%'";
+      break;
+    case "summary":
+      query = "SELECT * FROM tickets WHERE summary ILIKE '%" + term + "%'";
+      break;
+    case "details":
+      query =
+        "SELECT * FROM tickets, details WHERE details ILIKE '%" +
+        term +
+        "%' AND id=ticket_id";
+      break;
+    default:
+      query =
+        "SELECT * FROM tickets WHERE " + column + " ILIKE '%" + term + "%'";
+      break;
+  }
+  try {
+    const results = await pool.query(query, []);
+    response.status(200).json(results.rows);
+  } catch (err) {
+    console.log(err.stack);
   }
 };
 
 /**
  * Query for new ticket.
  */
-const createTicket = (request, response) => {
+const createTicket = async (request, response) => {
+  var ticketID;
   const {
     name,
     email,
@@ -111,39 +140,47 @@ const createTicket = (request, response) => {
     priority,
     category,
     subcategory,
+    timestamp,
     details,
     history
   } = request.body;
 
-  pool.query(
-    "INSERT INTO tickets (name, email, phone, extension, summary, status, type, priority, category, subcategory, details, history) VALUES ($1, $2, NULLIF($3,''), NULLIF($4,'')::smallint, $5, $6, $7, $8, $9, $10, $11, NULLIF($12,''))",
-    [
-      name,
-      email,
-      phone,
-      extension,
-      summary,
-      status,
-      type,
-      priority,
-      category,
-      subcategory,
-      details,
-      history
-    ],
-    (error, results) => {
-      if (error) {
-        throw error;
-      }
-      response.status(201).send(`Ticket created with ID: ${results.insertId}`);
+  try {
+    const results = await pool.query(
+      "INSERT INTO tickets (name, email, phone, extension, summary, status, type, priority, category, subcategory, history) VALUES ($1, $2, NULLIF($3,''), NULLIF($4,'')::smallint, $5, $6, $7, $8, $9, $10, NULLIF($11,'')) RETURNING id",
+      [
+        name,
+        email,
+        phone,
+        extension,
+        summary,
+        status,
+        type,
+        priority,
+        category,
+        subcategory,
+        history
+      ]
+    );
+    ticketID = results.rows[0].id;
+    try {
+      const results = await pool.query(
+        "INSERT INTO details (ticket_id, entry_id, timestamp, details) VALUES ($1, $2, $3, $4)",
+        [ticketID, 1, timestamp, details]
+      );
+    } catch (err) {
+      console.log(err.stack);
     }
-  );
+    response.status(200).send(`Ticket submitted with ID: ${ticketID}`);
+  } catch (err) {
+    console.log(err.stack);
+  }
 };
 
 /**
  * Query to update ticket information.
  */
-const updateTicket = (request, response) => {
+const updateTicket = async (request, response) => {
   const id = parseInt(request.params.id);
   const {
     name,
@@ -157,33 +194,48 @@ const updateTicket = (request, response) => {
     category,
     subcategory,
     details,
+    timestamp,
     history
   } = request.body;
 
-  pool.query(
-    "UPDATE tickets SET name = $2, email = $3, phone = NULLIF($4, ''), extension = NULLIF($5, '')::smallint, summary = $6, status = $7,  type = $8, priority = $9, category = $10, subcategory = $11, details = $12, history = $13 WHERE id = $1",
-    [
-      id,
-      name,
-      email,
-      phone,
-      extension,
-      summary,
-      status,
-      type,
-      priority,
-      category,
-      subcategory,
-      details,
-      history
-    ],
-    (error, results) => {
-      if (error) {
-        throw error;
-      }
+  try {
+    // First update information in 'tickets' table
+    const results = await pool.query(
+      "UPDATE tickets SET name = $2, email = $3, phone = NULLIF($4, ''), extension = NULLIF($5, '')::smallint, summary = $6, status = $7,  type = $8, priority = $9, category = $10, subcategory = $11, history = $12 WHERE id = $1",
+      [
+        id,
+        name,
+        email,
+        phone,
+        extension,
+        summary,
+        status,
+        type,
+        priority,
+        category,
+        subcategory,
+        history
+      ]
+    );
+    try {
+      // Get max entry ID for corresponding ticket
+      const entry_id = await pool.query(
+        "SELECT MAX(entry_id) FROM details WHERE ticket_id = $1",
+        [id]
+      );
+      const newEntry_id = entry_id.rows[0].max + 1;
+      // Insert new row into 'details' table with updated new entry ID
+      const results = await pool.query(
+        "INSERT INTO details (ticket_id, entry_id, timestamp, details) VALUES ($1, $2, $3, $4)",
+        [id, newEntry_id, timestamp, details]
+      );
       response.status(200).send(`Ticket modified with ID: ${id}`);
+    } catch (err) {
+      console.log(err.stack);
     }
-  );
+  } catch (err) {
+    console.log(err.stack);
+  }
 };
 
 module.exports = {
